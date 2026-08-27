@@ -28,6 +28,8 @@ namespace Lando.LowLevel
 	{
 		public string Name { get; set; }
 
+		public string ReaderId { get; set; } // Added
+
 		public int CurrentStatusFlags { get; set; }
 
 		public int NewStatusFlags { get; set; }
@@ -45,6 +47,7 @@ namespace Lando.LowLevel
 		public CardreaderStatus(string cardreaderName)
 		{
 			Name = cardreaderName;
+			ReaderId = null; // Added
 			CurrentStatusFlags = WinscardWrapper.SCARD_STATE_UNAWARE;
 		}
 

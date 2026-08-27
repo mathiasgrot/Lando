@@ -1,9 +1,10 @@
+﻿using Lando.LowLevel.ResultsTypes;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Threading;
-using Lando.LowLevel.ResultsTypes;
 
 namespace Lando.LowLevel
 {
@@ -128,7 +129,87 @@ namespace Lando.LowLevel
 			return result;
 		}
 
-		public OperationResult WaitForChanges(ref CardreaderStatus[] statuses)
+        public string GetReaderDeviceId(string readerName)
+        {
+            var context = EstablishContextIfNotEstablished();
+            uint size = 0;
+
+            // First call to get required buffer size
+            int rc = WinscardWrapper.SCardGetReaderDeviceInstanceIdA(context, readerName, null, ref size);
+            if (rc != WinscardWrapper.SCARD_S_SUCCESS)
+                throw new Exception($"SCardGetReaderDeviceInstanceIdA failed: {rc}");
+
+            // Allocate buffer
+            var buffer = new byte[size];
+
+            // Second call to get actual device ID
+            rc = WinscardWrapper.SCardGetReaderDeviceInstanceIdA(context, readerName, buffer, ref size);
+            if (rc != WinscardWrapper.SCARD_S_SUCCESS)
+                throw new Exception($"SCardGetReaderDeviceInstanceIdA failed: {rc}");
+
+            // Convert buffer to string
+            return Encoding.ASCII.GetString(buffer, 0, (int)size - 1); // remove null terminator
+        }
+
+
+        public OperationResult GetCardReadersWithDeviceIds(out string[] readersList, out string[] deviceIdsList)
+        {
+            var resourceManagerContext = EstablishContextIfNotEstablished();
+
+            readersList = new string[0];
+            deviceIdsList = new string[0];
+
+            OperationResult result;
+
+            uint readersSize = 0;
+            uint deviceIdsSize = 0;
+
+            // 1) First call — get buffer sizes
+            int returnCode = WinscardWrapper.SCardListReadersWithDeviceInstanceId(
+                resourceManagerContext,
+                null,
+                null,
+                ref readersSize,
+                null,
+                ref deviceIdsSize
+            );
+
+            if (returnCode != WinscardWrapper.SCARD_S_SUCCESS)
+            {
+                result = ReturnCodeManager.GetErrorMessage(returnCode);
+                return result;
+            }
+
+            // 2) Allocate buffers
+            var readersBuffer = new byte[readersSize];
+            var deviceIdsBuffer = new byte[deviceIdsSize];
+
+            // 3) Second call — fill buffers
+            returnCode = WinscardWrapper.SCardListReadersWithDeviceInstanceId(
+                resourceManagerContext,
+                null,
+                readersBuffer,
+                ref readersSize,
+                deviceIdsBuffer,
+                ref deviceIdsSize
+            );
+
+            if (returnCode != WinscardWrapper.SCARD_S_SUCCESS)
+            {
+                result = ReturnCodeManager.GetErrorMessage(returnCode);
+                return result;
+            }
+
+            // 4) Convert multi-string buffers to arrays
+            readersList = ConvertReadersBuffer(readersBuffer);
+            deviceIdsList = ConvertReadersBuffer(deviceIdsBuffer);
+
+            result = ReturnCodeManager.GetErrorMessage(returnCode);
+            return result;
+        }
+
+
+        public OperationResult WaitForChanges(ref CardreaderStatus[] statuses)
 		{
 			var resourceManagerContext = EstablishContextIfNotEstablished();
 

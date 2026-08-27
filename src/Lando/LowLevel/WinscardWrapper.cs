@@ -210,10 +210,29 @@ namespace Lando.LowLevel
 		[DllImport("winscard.dll", EntryPoint = "SCardListReaders")]
 		public static extern int SCardListReaders(IntPtr hContext, byte[] mszGroups, byte[] mszReaders, ref int pcchReaders);
 
-		/// <summary>
-		/// The SCardStatus function provides the current status of a smart card in a reader. You can call it any time after a successful call to SCardConnect and before a successful call to SCardDisconnect. It does not affect the state of the reader or reader driver.
-		/// </summary>
-		[DllImport("winscard.dll")]
+
+        [DllImport("winscard.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Winapi)]
+        public static extern int SCardListReadersWithDeviceInstanceId(
+                IntPtr hContext,
+				string mszGroups,
+				[Out] byte[] mszReaders,
+				ref uint pcchReaders,
+				[Out] byte[] mszDeviceInstanceIds,
+				ref uint pcchDeviceInstanceIds
+			);
+
+        [DllImport("winscard.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Winapi)]
+		public static extern int SCardGetReaderDeviceInstanceIdA(
+			IntPtr hContext,
+			string szReaderName,
+			[Out] byte[] mszDeviceInstanceId,
+			ref uint pcchDeviceInstanceId
+		);
+
+        /// <summary>
+        /// The SCardStatus function provides the current status of a smart card in a reader. You can call it any time after a successful call to SCardConnect and before a successful call to SCardDisconnect. It does not affect the state of the reader or reader driver.
+        /// </summary>
+        [DllImport("winscard.dll")]
 		public static extern int SCardStatus(IntPtr hCard, string szReaderName, ref int pcchReaderLen, ref int pdwState, ref int pdwProtocol, ref byte pbAtr, ref int pcbAtrLen);
 
 		/// <summary>

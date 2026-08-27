@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Linq;
 using System.Diagnostics;
 using Lando.Actions;
 using Lando.LowLevel;
 using Lando.Watcher;
 using Lando.Extensions;
+using System.Collections.Generic;
 
 namespace Lando
 {
@@ -135,7 +137,7 @@ namespace Lando
 			Logger.TraceEvent(TraceEventType.Verbose, 0, "Cardreader: Save invocation of CardreaderConnected");
 			Logger.Flush();
 
-			CardreaderConnected.SafeInvoke(this, new CardreaderEventArgs(e.CardreaderName));
+			CardreaderConnected.SafeInvoke(this, new CardreaderEventArgs(e.CardreaderName, (string)null));
 		}
 
 		internal virtual void OnCardreaderDisconnected(object sender, WatcherCardreaderEventArgs e)
@@ -143,17 +145,20 @@ namespace Lando
 			Logger.TraceEvent(TraceEventType.Verbose, 0, "Cardreader: Save invocation of CardreaderDisconnected");
 			Logger.Flush();
 
-			CardreaderDisconnected.SafeInvoke(this, new CardreaderEventArgs(e.CardreaderName));
+			CardreaderDisconnected.SafeInvoke(this, new CardreaderEventArgs(e.CardreaderName, (string)null));
 		}
 
 		internal virtual void OnCardConnected(object sender, WatcherCardEventArgs e)
 		{
 			var card = new ContactlessCard(e.Card);
 
+			var status = Reader._statuses.FirstOrDefault(x => x.Name == e.Card.CardreaderName);
+    		string readerId = status?.ReaderId;
+
 			Logger.TraceEvent(TraceEventType.Verbose, 0, "Cardreader: Save invocation of CardConnected");
 			Logger.Flush();
 
-			CardConnected.SafeInvoke(this, new CardreaderEventArgs(card, e.Card.CardreaderName));
+			CardConnected.SafeInvoke(this, new CardreaderEventArgs(card, e.Card.CardreaderName, readerId));
 		}
 
 		internal virtual void OnCardDisconnected(object sender, WatcherCardEventArgs e)
@@ -161,7 +166,12 @@ namespace Lando
 			Logger.TraceEvent(TraceEventType.Verbose, 0, "Cardreader: Save invocation of CardDisconnected");
 			Logger.Flush();
 
-			CardDisconnected.SafeInvoke(this, new CardreaderEventArgs((string)null));
+			CardDisconnected.SafeInvoke(this, new CardreaderEventArgs((string)null, (string)null));
 		}
+
+		public Dictionary<string, string> GetHardWareIDs()
+		{
+            return Reader.GetReaderHardwareIds();
+        }
 	}
 }

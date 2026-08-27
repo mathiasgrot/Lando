@@ -1,11 +1,13 @@
-﻿using System.Collections.Concurrent;
+﻿using Lando.LowLevel;
+using Lando.LowLevel.ResultsTypes;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Management; // make sure System.Management.dll is referenced
 using System.Threading;
-using Lando.LowLevel;
-using Lando.LowLevel.ResultsTypes;
 
 namespace Lando.Watcher
 {
@@ -17,7 +19,7 @@ namespace Lando.Watcher
 
 		private static readonly AsyncOperation AsyncOperation = AsyncOperationManager.CreateOperation(null);
 		private readonly ConcurrentDictionary<string, Card> _attachedCardStatuses = new ConcurrentDictionary<string, Card>();
-		private readonly List<CardreaderStatus> _statuses = new List<CardreaderStatus>();
+		public readonly List<CardreaderStatus> _statuses = new List<CardreaderStatus>(); // chantged to public
 		private readonly LowLevelCardReader _cardreader;
 
 		private int _cardreadersNumber;
@@ -28,6 +30,10 @@ namespace Lando.Watcher
 		public event WatcherCardEventHandler CardDisconnected;
 		public event WatcherCardreaderEventHandler CardreaderConnected;
 		public event WatcherCardreaderEventHandler CardreaderDisconnected;
+
+		// Added
+		private Dictionary<string, string> _readerIdMapping = new Dictionary<string, string>();
+
 
 		public Watcher(LowLevelCardReader cardreader)
 		{
@@ -71,21 +77,29 @@ namespace Lando.Watcher
 
 			if (operationResultType.IsSuccessful)
 			{
-				foreach (var readerName in readerNames)
+
+                foreach (var readerName in readerNames)
 				{
 					if (_statuses.All(x => x.Name != readerName))
 					{
-						_statuses.Add(new CardreaderStatus(readerName));
+						var status = new CardreaderStatus(readerName);
+
+						// assign stable hardware-based ID
+						string readerId = _cardreader.GetReaderDeviceId(readerName);//GetReaderDeviceId(readerName);
+
+                        status.ReaderId = readerId;
+
+						_statuses.Add(status);
 
 						_cardreadersNumber++;
 
-						RaiseCardreaderConnectedEvent(readerName);
+						RaiseCardreaderConnectedEvent(readerName, readerId);
 					}
 				}
-			}
+            }
 		}
 
-		private void StartWatch()
+        private void StartWatch()
 		{
 			_started = true;
 
@@ -265,12 +279,12 @@ namespace Lando.Watcher
 			AsyncOperation.Post(cb, null);
 		}
 
-		private void RaiseCardreaderConnectedEvent(string readerName)
+		private void RaiseCardreaderConnectedEvent(string readerName, string readerId)
 		{
 			Logger.TraceEvent(TraceEventType.Verbose, 0, "Raising CardreaderConnected event");
 			Logger.Flush();
 
-			SendOrPostCallback cb = state => CardreaderConnected(null, new WatcherCardreaderEventArgs(readerName));
+			SendOrPostCallback cb = state => CardreaderConnected(null, new WatcherCardreaderEventArgs(readerName, readerId));
 			AsyncOperation.Post(cb, null);
 		}
 
@@ -349,9 +363,25 @@ namespace Lando.Watcher
 				foreach (var statusType in cardreaderStatus.Statuses)
 				{
 					Logger.TraceEvent(TraceEventType.Verbose, 0, "Status: {0}", statusType);
-				}
+				} 
 			}
 			Logger.Flush();
 		}
-	}
+
+        public Dictionary<string, string> GetReaderHardwareIds()
+        {
+            if (!_cardreader.GetCardReadersList(out var readerNames).IsSuccessful || readerNames == null)
+                return new Dictionary<string, string>();
+
+            var existingNames = new HashSet<string>(_statuses.Select(s => s.Name));
+
+            return readerNames
+                .Where(name => !existingNames.Contains(name))
+                .ToDictionary(
+                    name => name,
+                    name => _cardreader.GetReaderDeviceId(name)
+                );
+        }
+    }
+
 }
