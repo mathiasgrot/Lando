@@ -25,6 +25,9 @@ reader.CardreaderConnected += (sender, args) =>
 
 reader.CardreaderDisconnected += (sender, args) =>
 	Console.WriteLine("Cardreader Disconnected : " + args.CardreaderName);
+
+// Added: Returns hardware IDs for all connected readers, keyed by reader name
+Dictionary<string, string> hardwareIds = reader.GetHardwareIDs();
 ```
 
 #### Models tested:
